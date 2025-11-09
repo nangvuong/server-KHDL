@@ -1,0 +1,20 @@
+{
+  "name": "server-khdl",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nangvuong/server-KHDL.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nangvuong/server-KHDL/issues"
+  },
+  "homepage": "https://github.com/nangvuong/server-KHDL#readme"
+}
