@@ -16,5 +16,10 @@
   "bugs": {
     "url": "https://github.com/nangvuong/server-KHDL/issues"
   },
-  "homepage": "https://github.com/nangvuong/server-KHDL#readme"
+  "homepage": "https://github.com/nangvuong/server-KHDL#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
+    "express": "^5.1.0"
+  }
 }
