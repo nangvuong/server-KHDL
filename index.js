@@ -438,8 +438,12 @@ app.get("/api/heatmap", async (req, res) => {
     columns = Object.keys(firstRow);
   }
 
-  // Bỏ các cột không cần thiết
-  const excludeColumns = ["last_updated", "LastUpdate", "image", "name", "symbol", "id"];
+  // Bỏ các cột không cần thiết (metadata, ngày tháng, dữ liệu thiếu)
+  const excludeColumns = [
+    "last_updated", "LastUpdate", "image", "name", "symbol", "id",
+    "ath_date", "atl_date", "roi", // ngày tháng và non-numeric
+    "fully_diluted_valuation" // cột thường thiếu dữ liệu
+  ];
   columns = columns.filter(col => !excludeColumns.includes(col));
 
   // Lọc cột hợp lệ (numeric)
@@ -469,16 +473,17 @@ app.get("/api/heatmap", async (req, res) => {
       .filter(val => val !== null);
   }
 
-  // Lọc chỉ giữ cột có ít nhất 10% dữ liệu hợp lệ
-  const minDataPoints = Math.max(10, Math.floor(allCoinsFromCSV.length * 0.1));
+  // Lọc chỉ giữ cột có ít nhất 80% dữ liệu hợp lệ (strict hơn)
+  const minDataPoints = Math.floor(allCoinsFromCSV.length * 0.8);
   const validColumns = columns.filter(col => data[col].length >= minDataPoints);
 
   if (validColumns.length < 2) {
     return res.json({
       success: false,
-      message: `Not enough columns with valid data. Need at least 2 columns with ${minDataPoints}+ data points`,
+      message: `Not enough columns with sufficient data. Need at least 2 columns with 80%+ data points`,
       checked_columns: columns.length,
       valid_columns: validColumns.length,
+      required_data_points: minDataPoints,
       total_records: allCoinsFromCSV.length
     });
   }
@@ -538,9 +543,10 @@ app.get("/api/heatmap", async (req, res) => {
     success: true,
     columns: finalColumns,
     data_points: n,
+    data_completeness: parseFloat(((n / allCoinsFromCSV.length) * 100).toFixed(1)) + "%",
     total_records: allCoinsFromCSV.length,
     correlation_matrix: correlationMatrix,
-    description: "Correlation matrix. Range: -1 (negative) to 1 (positive). Use frontend to apply colors."
+    description: "Correlation matrix with 80%+ data completeness. Range: -1 (negative) to 1 (positive)."
   });
 });
 
