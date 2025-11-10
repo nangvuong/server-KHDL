@@ -635,6 +635,117 @@ app.get("/api/wordmap", async (req, res) => {
   });
 });
 
+// Endpoint: /api/treemap - Trả về top N coin với market_cap và 24h change % để vẽ treemap
+// Query params:
+//   - limit: số coin tối đa (default: 50, max: 100)
+app.get("/api/treemap", async (req, res) => {
+  await ensureLoaded();
+
+  const limit = Math.min(100, Math.max(5, parseInt(req.query.limit) || 50));
+
+  // Lọc coin có market_cap và change_24h hợp lệ
+  const validCoins = allCoinsFromCSV
+    .map(coin => {
+      const marketCap = parseFloat(coin.market_cap);
+      const change24h = parseFloat(coin.market_cap_change_percentage_24h);
+      const name = String(coin.name || "").trim();
+      const symbol = String(coin.symbol || "").trim().toUpperCase();
+      const image = String(coin.image || "").trim();
+      
+      if (!Number.isFinite(marketCap) || !Number.isFinite(change24h) || !name || !symbol) {
+        return null;
+      }
+      
+      return {
+        name: name,
+        symbol: symbol,
+        market_cap: marketCap,
+        change_24h: change24h,
+        image: image
+      };
+    })
+    .filter(item => item !== null)
+    .sort((a, b) => b.market_cap - a.market_cap)
+    .slice(0, limit);
+
+  if (validCoins.length === 0) {
+    return res.json({
+      success: false,
+      message: "No valid coins found for treemap"
+    });
+  }
+
+  // Tính min/max market_cap để normalize size
+  const marketCaps = validCoins.map(c => c.market_cap);
+  const minCap = Math.min(...marketCaps);
+  const maxCap = Math.max(...marketCaps);
+  const capRange = maxCap - minCap || 1;
+
+  // Tính min/max change_24h để color gradient
+  const changes = validCoins.map(c => c.change_24h);
+  const minChange = Math.min(...changes);
+  const maxChange = Math.max(...changes);
+  const changeRange = maxChange - minChange || 1;
+
+  // Tạo treemap data
+  const treemapData = validCoins.map((coin, index) => {
+    // Size dựa trên market_cap
+    const sizeRatio = (coin.market_cap - minCap) / capRange;
+    const size = 10 + sizeRatio * 90; // 10 to 100
+
+    // Color dựa trên 24h change: Red (negative) -> White (zero) -> Green (positive)
+    const changeRatio = (coin.change_24h - minChange) / changeRange;
+    let hue, saturation, lightness;
+
+    if (coin.change_24h < 0) {
+      // Red for negative change
+      hue = 0;
+      saturation = Math.abs(changeRatio) * 100;
+      lightness = 70 - Math.abs(changeRatio) * 40;
+    } else if (coin.change_24h > 0) {
+      // Green for positive change
+      hue = 120;
+      saturation = changeRatio * 100;
+      lightness = 70 - changeRatio * 40;
+    } else {
+      // White for zero change
+      hue = 0;
+      saturation = 0;
+      lightness = 80;
+    }
+
+    return {
+      id: coin.symbol.toLowerCase(),
+      label: `${coin.symbol}`,
+      value: coin.market_cap,
+      size: parseFloat(size.toFixed(2)),
+      rank: index + 1,
+      name: coin.name,
+      market_cap: coin.market_cap,
+      change_24h: parseFloat(coin.change_24h.toFixed(2)),
+      image: coin.image,
+      color: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+      weight: parseFloat((sizeRatio * 100).toFixed(2))
+    };
+  });
+
+  res.json({
+    success: true,
+    count: treemapData.length,
+    limit: limit,
+    data: treemapData,
+    statistics: {
+      total_market_cap: treemapData.reduce((sum, c) => sum + c.market_cap, 0),
+      min_market_cap: parseFloat(minCap.toFixed(2)),
+      max_market_cap: parseFloat(maxCap.toFixed(2)),
+      avg_market_cap: parseFloat((treemapData.reduce((sum, c) => sum + c.market_cap, 0) / treemapData.length).toFixed(2)),
+      min_change_24h: parseFloat(minChange.toFixed(2)),
+      max_change_24h: parseFloat(maxChange.toFixed(2)),
+      avg_change_24h: parseFloat((treemapData.reduce((sum, c) => sum + c.change_24h, 0) / treemapData.length).toFixed(2))
+    }
+  });
+});
+
 app.listen(PORT, () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);
     ensureLoaded();
